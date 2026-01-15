@@ -1,36 +1,28 @@
-// Чистый Node.js, без express и node-fetch
-const http = require("http");
-const https = require("https");
+import http from "node:http";
+import fetch from "node-fetch";
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// Функция для получения XML с ECB
-function fetchECB(callback) {
-  https.get("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml", (res) => {
-    let data = "";
-    res.on("data", chunk => data += chunk);
-    res.on("end", () => callback(null, data));
-  }).on("error", (err) => callback(err));
-}
-
-// Создаем HTTP сервер
-const server = http.createServer((req, res) => {
+http.createServer(async (req, res) => {
   if (req.url === "/ecb") {
-    fetchECB((err, data) => {
-      if (err) {
-        res.writeHead(500, { "Content-Type": "text/plain" });
-        res.end("Ошибка получения данных ECB");
-        return;
-      }
-      res.writeHead(200, { "Content-Type": "application/xml" });
+    try {
+      const response = await fetch(
+        "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
+      );
+      const data = await response.text();
+
+      // Добавляем CORS заголовок
+      res.writeHead(200, {
+        "Content-Type": "application/xml",
+        "Access-Control-Allow-Origin": "*" // <- это разрешает все домены
+      });
       res.end(data);
-    });
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("Ошибка: " + err.message);
+    }
   } else {
     res.writeHead(404, { "Content-Type": "text/plain" });
-    res.end("Not Found");
+    res.end("Not found");
   }
-});
-
-server.listen(PORT, () => {
-  console.log(`Proxy запущен на http://localhost:${PORT}/ecb`);
-});
+}).listen(PORT, () => console.log(`Proxy запущен на http://localhost:${PORT}/ecb`));
